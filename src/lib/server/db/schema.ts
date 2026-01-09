@@ -13,10 +13,16 @@ import { sql, relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
+const commonFields = {
+	id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at')
+};
+
 const zPhone = z.string().regex(/^\d{3}-\d{3}-\d{4}$/, 'Format: 123-456-7890');
 
 export const clients = pgTable('clients', {
-	id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+	...commonFields,
 	firstName: text('first_name').notNull(),
 	lastName: text('last_name').notNull(),
 	email: text('email').notNull().unique(),
@@ -25,9 +31,7 @@ export const clients = pgTable('clients', {
 	city: text('city'),
 	state: text('state'),
 	zip: text('zip'),
-	notes: text('notes'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updatedAt')
+	notes: text('notes')
 });
 
 export const insertClientSchema = createInsertSchema(clients);
@@ -52,7 +56,7 @@ export type Client = typeof clients.$inferSelect;
 export type NewClient = z.infer<typeof createClientSchema>;
 
 export const emergency_contacts = pgTable('emergency_contacts', {
-	id: integer('id').generatedAlwaysAsIdentity().notNull(),
+	...commonFields,
 	clientId: integer('client_id')
 		.notNull()
 		.references(() => clients.id, { onDelete: 'cascade' }),
@@ -61,15 +65,13 @@ export const emergency_contacts = pgTable('emergency_contacts', {
 	lastName: text('last_name').notNull(),
 	clientRelationship: text('client_relationship'),
 	phone: text('phone').notNull(),
-	email: text('email'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at')
+	email: text('email')
 });
 
 export const insertEmergencyContactSchema = createInsertSchema(emergency_contacts);
 export const selectEmergencyContactSchema = createSelectSchema(emergency_contacts);
 
-export const createEmergencyContactSchema = insertClientSchema
+export const createEmergencyContactSchema = insertEmergencyContactSchema
 	.omit({
 		createdAt: true,
 		updatedAt: true
@@ -94,7 +96,7 @@ export const speciesEnum = pgEnum('speciesEnum', [
 ]);
 
 export const patients = pgTable('patients', {
-	id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+	...commonFields,
 	clientId: integer('client_id')
 		.notNull()
 		.references(() => clients.id, { onDelete: 'cascade' }),
@@ -112,17 +114,15 @@ export const patients = pgTable('patients', {
 	speciesData: jsonb('species_data'),
 	isDeceased: boolean('is_deceased').default(false).notNull(),
 	deceasedDate: timestamp('deceased_date'),
-	notes: text('notes'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at')
+	notes: text('notes')
 });
 
 const canineDataSchema = z.object({
 	species: z.literal('canine'),
-	akc_regestered: z.boolean().optional(),
+	akc_registered: z.boolean().optional(),
 	akc_number: z.string().optional(),
 	is_working_dog: z.boolean().optional(),
-	working_dog_type: z.enum(['service', 'therapy', 'search_rescue', 'other'])
+	working_dog_type: z.enum(['service', 'therapy', 'search_rescue', 'other']).optional()
 });
 
 const felineDataSchema = z.object({
@@ -135,14 +135,14 @@ const felineDataSchema = z.object({
 
 const avianDataSchema = z.object({
 	species: z.literal('avian'),
-	bird_type: z.enum(['parrot', 'songbird', 'raptor', 'waterfowel', 'poultry', 'other']),
+	bird_type: z.enum(['parrot', 'songbird', 'raptor', 'waterfowl', 'poultry', 'other']),
 	is_flighted: z.boolean().optional(),
 	band_number: z.string().optional()
 });
 
 const reptileDataSchema = z.object({
 	species: z.literal('reptile'),
-	reptile_type: z.enum(['snake', 'lizard', 'turtle', 'tortoise', 'corcodilian', 'other']),
+	reptile_type: z.enum(['snake', 'lizard', 'turtle', 'tortoise', 'crocodilian', 'other']),
 	is_venomous: z.boolean().optional(),
 	permit_number: z.string().optional(),
 	enclosure_type: z.string().optional()
@@ -217,7 +217,7 @@ export const photoCategory = pgEnum('photo_category', ['profile', 'medical', 'x-
 export const patient_photos = pgTable(
 	'patient_photos',
 	{
-		id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+		...commonFields,
 		patientId: integer('patient_id')
 			.notNull()
 			.references(() => patients.id, { onDelete: 'cascade' }),
@@ -225,9 +225,7 @@ export const patient_photos = pgTable(
 		imagePath: text('image_path').notNull(),
 		isPrimary: boolean('is_primary').default(false).notNull(),
 		notes: text('notes'),
-		softDelete: timestamp('soft_delete'),
-		createdAt: timestamp('created_at').defaultNow().notNull(),
-		updatedAt: timestamp()
+		softDelete: timestamp('soft_delete')
 	},
 	(table) => ({
 		uniquePrimaryPerPatient: uniqueIndex('unique_primary_photo_per_patient')
@@ -245,7 +243,7 @@ export const createPatientPhotoSchema = insertPatientPhotoSchema.omit({
 	softDelete: true
 });
 
-export type PatienPhoto = typeof patient_photos.$inferSelect;
+export type PatientPhoto = typeof patient_photos.$inferSelect;
 export type NewPatientPhoto = z.infer<typeof createPatientPhotoSchema>;
 
 // relations
