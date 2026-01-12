@@ -51,8 +51,11 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
+		"drizzle-valibot": "^0.4.2",
 		"drizzle-zod": "^0.8.3",
+		"effect": "^3.19.14",
 		"postgres": "^3.4.8",
+		"valibot": "^1.2.0",
 		"zod": "^4.3.5"
 	}
 }

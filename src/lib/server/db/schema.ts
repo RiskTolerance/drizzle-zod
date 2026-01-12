@@ -10,8 +10,8 @@ import {
 	uniqueIndex
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
-import { z } from 'zod';
+import { createInsertSchema, createSelectSchema } from 'drizzle-valibot';
+import * as v from 'valibot';
 
 const commonFields = {
 	id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
@@ -19,7 +19,7 @@ const commonFields = {
 	updatedAt: timestamp('updated_at')
 };
 
-const zPhone = z.string().regex(/^\d{3}-\d{3}-\d{4}$/, 'Format: 123-456-7890');
+const vPhone = v.pipe(v.string(), v.regex(/^\d{3}-\d{3}-\d{4}$/, 'Format: 123-456-7890'));
 
 export const clients = pgTable('clients', {
 	...commonFields,
@@ -37,23 +37,17 @@ export const clients = pgTable('clients', {
 export const insertClientSchema = createInsertSchema(clients);
 export const selectClientSchema = createSelectSchema(clients);
 
-export const createClientSchema = insertClientSchema
-	.omit({
-		createdAt: true,
-		updatedAt: true
-	})
-	.extend({
-		email: z.email(),
-		phone: zPhone,
-		state: z.string().length(2).optional(),
-		zip: z
-			.string()
-			.regex(/^\d{5}(-\d{4})?$/)
-			.optional()
-	});
+const baseClientSchema = v.omit(insertClientSchema, ['createdAt', 'updatedAt']);
+export const createClientSchema = v.object({
+	...baseClientSchema.entries,
+	email: v.pipe(v.string(), v.email()),
+	phone: vPhone,
+	state: v.optional(v.pipe(v.string(), v.length(2))),
+	zip: v.optional(v.pipe(v.string(), v.regex(/^\d{5}(-\d{4})?$/)))
+});
 
 export type Client = typeof clients.$inferSelect;
-export type NewClient = z.infer<typeof createClientSchema>;
+export type NewClient = v.InferInput<typeof createClientSchema>;
 
 export const emergency_contacts = pgTable('emergency_contacts', {
 	...commonFields,
@@ -71,19 +65,16 @@ export const emergency_contacts = pgTable('emergency_contacts', {
 export const insertEmergencyContactSchema = createInsertSchema(emergency_contacts);
 export const selectEmergencyContactSchema = createSelectSchema(emergency_contacts);
 
-export const createEmergencyContactSchema = insertEmergencyContactSchema
-	.omit({
-		createdAt: true,
-		updatedAt: true
-	})
-	.extend({
-		priority: z.number().min(1).max(10),
-		phone: zPhone,
-		email: z.email().optional()
-	});
+const baseEmergencyContactSchema = v.omit(insertEmergencyContactSchema, ['createdAt', 'updatedAt']);
+export const createEmergencyContactSchema = v.object({
+	...baseEmergencyContactSchema.entries,
+	priority: v.pipe(v.number(), v.minValue(1), v.maxValue(10)),
+	phone: vPhone,
+	email: v.optional(v.pipe(v.string(), v.email()))
+});
 
 export type EmergencyContact = typeof emergency_contacts.$inferSelect;
-export type NewEmergencyContact = z.infer<typeof createEmergencyContactSchema>;
+export type NewEmergencyContact = v.InferInput<typeof createEmergencyContactSchema>;
 
 export const speciesEnum = pgEnum('speciesEnum', [
 	'canine',
@@ -117,40 +108,40 @@ export const patients = pgTable('patients', {
 	notes: text('notes')
 });
 
-const canineDataSchema = z.object({
-	species: z.literal('canine'),
-	akc_registered: z.boolean().optional(),
-	akc_number: z.string().optional(),
-	is_working_dog: z.boolean().optional(),
-	working_dog_type: z.enum(['service', 'therapy', 'search_rescue', 'other']).optional()
+const canineDataSchema = v.object({
+	species: v.literal('canine'),
+	akc_registered: v.optional(v.boolean()),
+	akc_number: v.optional(v.string()),
+	is_working_dog: v.optional(v.boolean()),
+	working_dog_type: v.optional(v.picklist(['service', 'therapy', 'search_rescue', 'other']))
 });
 
-const felineDataSchema = z.object({
-	species: z.literal('feline'),
-	is_indoor_only: z.boolean().optional(),
-	is_declawed: z.boolean().optional(),
-	fiv_status: z.enum(['positive', 'negative', 'unknown']).optional(),
-	felv_status: z.enum(['positive', 'negative', 'unknown']).optional()
+const felineDataSchema = v.object({
+	species: v.literal('feline'),
+	is_indoor_only: v.optional(v.boolean()),
+	is_declawed: v.optional(v.boolean()),
+	fiv_status: v.optional(v.picklist(['positive', 'negative', 'unknown'])),
+	felv_status: v.optional(v.picklist(['positive', 'negative', 'unknown']))
 });
 
-const avianDataSchema = z.object({
-	species: z.literal('avian'),
-	bird_type: z.enum(['parrot', 'songbird', 'raptor', 'waterfowl', 'poultry', 'other']),
-	is_flighted: z.boolean().optional(),
-	band_number: z.string().optional()
+const avianDataSchema = v.object({
+	species: v.literal('avian'),
+	bird_type: v.picklist(['parrot', 'songbird', 'raptor', 'waterfowl', 'poultry', 'other']),
+	is_flighted: v.optional(v.boolean()),
+	band_number: v.optional(v.string())
 });
 
-const reptileDataSchema = z.object({
-	species: z.literal('reptile'),
-	reptile_type: z.enum(['snake', 'lizard', 'turtle', 'tortoise', 'crocodilian', 'other']),
-	is_venomous: z.boolean().optional(),
-	permit_number: z.string().optional(),
-	enclosure_type: z.string().optional()
+const reptileDataSchema = v.object({
+	species: v.literal('reptile'),
+	reptile_type: v.picklist(['snake', 'lizard', 'turtle', 'tortoise', 'crocodilian', 'other']),
+	is_venomous: v.optional(v.boolean()),
+	permit_number: v.optional(v.string()),
+	enclosure_type: v.optional(v.string())
 });
 
-const smallMammalDataSchema = z.object({
-	species: z.literal('small_mammal'),
-	mammal_type: z.enum([
+const smallMammalDataSchema = v.object({
+	species: v.literal('small_mammal'),
+	mammal_type: v.picklist([
 		'rabbit',
 		'guinea_pig',
 		'hamster',
@@ -163,24 +154,29 @@ const smallMammalDataSchema = z.object({
 	])
 });
 
-const equineDataSchema = z.object({
-	species: z.literal('equine'),
-	registration_number: z.string().optional(),
-	registry: z.string().optional(),
-	use_type: z.enum(['companion', 'show', 'racing', 'working', 'breeding', 'other']),
-	height_hands: z.number().optional(),
-	coggins_date: z.coerce.date().optional()
+const equineDataSchema = v.object({
+	species: v.literal('equine'),
+	registration_number: v.optional(v.string()),
+	registry: v.optional(v.string()),
+	use_type: v.picklist(['companion', 'show', 'racing', 'working', 'breeding', 'other']),
+	height_hands: v.optional(v.number()),
+	coggins_date: v.optional(
+		v.pipe(
+			v.union([v.string(), v.number()]),
+			v.transform((input) => new Date(input))
+		)
+	)
 });
 
-const exoticDataSchema = z.object({
-	species: z.literal('exotic'),
-	exotic_type: z.string(),
-	permit_required: z.boolean().default(false),
-	permit_number: z.string().optional(),
-	species_handling_notes: z.string().optional()
+const exoticDataSchema = v.object({
+	species: v.literal('exotic'),
+	exotic_type: v.string(),
+	permit_required: v.optional(v.boolean()),
+	permit_number: v.optional(v.string()),
+	species_handling_notes: v.optional(v.string())
 });
 
-export const speciesDataSchema = z.discriminatedUnion('species', [
+export const speciesDataSchema = v.variant('species', [
 	canineDataSchema,
 	felineDataSchema,
 	avianDataSchema,
@@ -190,27 +186,27 @@ export const speciesDataSchema = z.discriminatedUnion('species', [
 	exoticDataSchema
 ]);
 
-const sexEnum = z.enum(['male', 'female', 'male_neutered', 'female_spayed', 'unknown']);
+const sexEnum = v.picklist(['male', 'female', 'male_neutered', 'female_spayed', 'unknown']);
 
 export const insertPatientSchema = createInsertSchema(patients);
 export const selectPatientSchema = createSelectSchema(patients);
 
-export const createPatientSchema = insertPatientSchema
-	.omit({
-		createdAt: true,
-		updatedAt: true,
-		weightUpdatedAt: true
-	})
-	.extend({
-		species: z.enum(speciesEnum.enumValues),
-		sex: sexEnum,
-		speciesData: speciesDataSchema.optional(),
-		microchipNumber: z.string().min(9).max(15).optional()
-	});
+const basePatientSchema = v.omit(insertPatientSchema, [
+	'createdAt',
+	'updatedAt',
+	'weightUpdatedAt'
+]);
+export const createPatientSchema = v.object({
+	...basePatientSchema.entries,
+	species: v.picklist(speciesEnum.enumValues),
+	sex: sexEnum,
+	speciesData: v.optional(speciesDataSchema),
+	microchipNumber: v.optional(v.pipe(v.string(), v.minLength(9), v.maxLength(15)))
+});
 
 export type Patient = typeof patients.$inferSelect;
-export type NewPatient = z.infer<typeof createPatientSchema>;
-export type SpeciesData = z.infer<typeof speciesDataSchema>;
+export type NewPatient = v.InferInput<typeof createPatientSchema>;
+export type SpeciesData = v.InferInput<typeof speciesDataSchema>;
 
 export const photoCategory = pgEnum('photo_category', ['profile', 'medical', 'x-ray']);
 
@@ -237,14 +233,14 @@ export const patient_photos = pgTable(
 export const insertPatientPhotoSchema = createInsertSchema(patient_photos);
 export const selectPatientPhotoSchema = createSelectSchema(patient_photos);
 
-export const createPatientPhotoSchema = insertPatientPhotoSchema.omit({
-	createdAt: true,
-	updatedAt: true,
-	softDelete: true
-});
+export const createPatientPhotoSchema = v.omit(insertPatientPhotoSchema, [
+	'createdAt',
+	'updatedAt',
+	'softDelete'
+]);
 
 export type PatientPhoto = typeof patient_photos.$inferSelect;
-export type NewPatientPhoto = z.infer<typeof createPatientPhotoSchema>;
+export type NewPatientPhoto = v.InferInput<typeof createPatientPhotoSchema>;
 
 // relations
 
